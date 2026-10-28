@@ -1,0 +1,24 @@
+# 教師VLM（Ollama）の設定。モデル名・digest は check_env が docs/env_report.json に記録する。
+ollama_url: http://localhost:11434
+timeout_s: 120
+default_model: gemma3:4b
+models:
+  - gemma3:4b
+  - qwen2.5vl:7b
+  - qwen3.5:27b
+# think:false を送るモデル（thinking 対応モデルのみ。非対応モデルに送るとエラーになり得る）
+think_models:
+  - qwen3.5:27b
+image_format: jpeg   # Ollama へ送る画像のエンコード形式（jpeg / png）
+jpeg_quality: 90
+options:
+  temperature: 0
+prompt: |
+  You are a safety monitor for a small desktop robot arm. Look at the camera image and
+  decide what the arm should do right now. Answer with exactly one choice:
+  - CONTINUE: no person or body part is near the arm's workspace; it is safe to keep working.
+  - SLOW: a person or hand is in view and approaching or near the edge of the workspace.
+  - STOP: a hand or body part is inside the workspace or very close to the arm, or the
+    scene is unclear (blocked, dark, blurred) so safety cannot be confirmed.
+  When in doubt, choose the safer option (STOP > SLOW > CONTINUE).
+  Respond in JSON only.

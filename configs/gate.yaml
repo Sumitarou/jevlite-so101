@@ -1,0 +1,16 @@
+# セーフティ・ゲート（gate/safety_gate.py）の設定。仕様は docs/spec.md の G1〜G9。
+stale_s: 0.2        # G1: Decision がこれより古ければ STOP 扱い [s]
+min_conf: 0.6       # G2: max(probs) がこれ未満なら一段階安全側
+slow_alpha: 0.3     # G4: SLOW 時の q_target への補間係数（0〜1）
+resume_hold_s: 0.5  # G6: 制限を緩める遷移に必要な、遷移先判定の連続時間 [s]
+future_tol_s: 0.001 # G1b: t_mono - now がこれを超えたら STOP 扱い（時計の不整合）[s]
+# G8: 関節ごとの最大速度（ロボットの関節値の単位/秒）。前回の指令からの 1 ステップの変化 ≤ max_speed × dt。
+# 【仮の値】実機の単位（度 or 正規化値）と制御周期を確認してから決める。
+#           shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper
+max_speed: [60.0, 60.0, 60.0, 60.0, 60.0, 100.0]
+dt_max: 0.1         # G8: dt の上限 [s]（呼び出しが空いても 1 ステップで動ける量を抑える）
+# G8: SLOW 中は上限を slow_speed_scale × max_speed にする（0 < x ≤ 1）。M4a-S の SLOW の時間の伸ばし（0.3 倍）より
+#     少し大きくし、普通の SLOW の動きには触れず、chunk の切り替わりの跳びだけを抑える
+slow_speed_scale: 0.4
+# G9: 関節ごとの追従誤差の上限（関節値の単位）。|前回の指令 - q_now| がこれを超えたら STOP。【仮の値】
+max_follow_err: [15.0, 15.0, 15.0, 15.0, 15.0, 30.0]

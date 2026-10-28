@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<!-- SO-101 for Gazebo: the upstream URDF (so101_description) fixed to the work table, with
+     ros2_control position interfaces (gz_ros2_control). Pose comes from configs/sim.yaml. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="so101">
+  <xacro:arg name="sim_config" default=""/>
+  <xacro:arg name="controllers_file" default=""/>
+  <xacro:property name="cfg" value="${xacro.load_yaml('$(arg sim_config)')}"/>
+  <xacro:property name="table" value="${cfg['table']}"/>
+  <xacro:property name="robot" value="${cfg['robot']}"/>
+
+  <xacro:include filename="$(find so101_description)/urdf/so101_new_calib.urdf"/>
+
+  <link name="world"/>
+  <joint name="world_to_base" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+    <origin xyz="${robot['xyz'][0]} ${robot['xyz'][1]} ${table['height'] + robot['xyz'][2]}"
+            rpy="${robot['rpy'][0]} ${robot['rpy'][1]} ${robot['rpy'][2]}"/>
+  </joint>
+
+  <xacro:macro name="position_joint" params="name">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity"/>
+    </joint>
+  </xacro:macro>
+
+  <ros2_control name="GazeboSimSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+    <xacro:position_joint name="shoulder_pan"/>
+    <xacro:position_joint name="shoulder_lift"/>
+    <xacro:position_joint name="elbow_flex"/>
+    <xacro:position_joint name="wrist_flex"/>
+    <xacro:position_joint name="wrist_roll"/>
+    <xacro:position_joint name="gripper"/>
+  </ros2_control>
+
+  <gazebo>
+    <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <parameters>$(arg controllers_file)</parameters>
+    </plugin>
+  </gazebo>
+</robot>

@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# pre-commit: refuse commits whose staged changes contain local secret values.
+#
+# Values are read from $GIT_DIR/info/secret-patterns (outside version control), one per line:
+#     <label><TAB><value>        e.g.  hostname<TAB>...   (lines starting with # are ignored)
+# Text files: only the added lines of the staged diff are checked. Binary files: the whole
+# staged blob is checked. Matching is case-insensitive and literal (no regex).
+# The values themselves are never printed: only the label, the number of matches and the file.
+#
+# Installed by scripts/install_hooks.sh. Bypass only on purpose: git commit --no-verify
+set -euo pipefail
+
+git_dir=$(git rev-parse --git-common-dir)  # shared by all worktrees
+patterns="$git_dir/info/secret-patterns"
+
+if [[ ! -s "$patterns" ]]; then
+    echo "secret-check: $patterns is missing or empty; refusing to commit." >&2
+    echo "secret-check: run scripts/install_hooks.sh (and add any extra values by hand)." >&2
+    exit 1
+fi
+
+# label<TAB>value pairs (skip comments and blank values)
+labels=()
+values=()
+while IFS=$'\t' read -r label value || [[ -n "${label:-}" ]]; do
+    [[ -z "${label:-}" || "${label:0:1}" == "#" || -z "${value:-}" ]] && continue
+    labels+=("$label")
+    values+=("$value")
+done <"$patterns"
+if [[ ${#values[@]} -eq 0 ]]; then
+    echo "secret-check: no values in $patterns; refusing to commit." >&2
+    exit 1
+fi
+
+# file name for messages, with every value replaced by <label> (never print a value)
+masked_name() {
+    local name=$1 i
+    for i in "${!values[@]}"; do
+        name=$(V="${values[$i]}" L="${labels[$i]}" perl -pe 's/\Q$ENV{V}\E/<$ENV{L}>/gi' <<<"$name")
+    done
+    printf '%s' "$name"
+}
+
+found=0
+checked=0
+while IFS= read -r -d '' file; do
+    checked=$((checked + 1))
+    numstat=$(git diff --cached --numstat -- "$file" | head -n1)
+    if [[ "$numstat" == -* ]]; then
+        content=$(git show ":$file" | tr -d '\0')                    # binary: whole blob
+    else
+        content=$(git diff --cached -U0 --no-color -- "$file" | grep -a '^+' | grep -av '^+++' || true)
+    fi
+    for i in "${!values[@]}"; do
+        n=$(printf '%s' "$content" | grep -aciF -- "${values[$i]}" || true)
+        name_hit=$(printf '%s' "$file" | grep -ciF -- "${values[$i]}" || true)
+        if [[ "$n" -gt 0 || "$name_hit" -gt 0 ]]; then
+            [[ "$name_hit" -gt 0 ]] && where="file name and $n line(s)" || where="$n line(s)"
+            echo "secret-check: ${labels[$i]}: $where in $(masked_name "$file")" >&2
+            found=1
+        fi
+    done
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+
+if [[ $found -ne 0 ]]; then
+    echo "secret-check: commit refused (values are not shown; see $patterns)." >&2
+    exit 1
+fi
+echo "secret-check: passed (${#values[@]} values, $checked staged file(s) checked)" >&2
+exit 0

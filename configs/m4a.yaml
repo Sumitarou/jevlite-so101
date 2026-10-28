@@ -1,0 +1,87 @@
+# M4a：セーフティ・ゲートを Gazebo の閉ループに組み込む（scripts/sim/gate_demo_sim.py）。
+# 単位は m・rad・s（時刻は sim 時間、エピソードの閉ループの開始からの秒）。棒のモデルは configs/sim.yaml の intruder。
+policy:
+  checkpoint: models/act/20261011_163738_m3c_100k/lerobot/checkpoints/100000  # M3d の推奨
+  device: cuda
+  n_action_steps: null      # null：学習時の設定（100）
+gate_config: configs/gate_sim.yaml
+duration_s: 20              # STOP の分（最大 約 4 s）を見込んで M3d（15 s）より長く。方策は初期姿勢に戻った後に 2 回目の押しを始め、
+                            # 基準でも約 23 s でブロックに届くので、それより短くする（25 s の試行で確認）
+block_start: [0.0, -0.04, 0.0]  # ブロックの初期位置 (x, y, yaw)。M3e の中央と同じ（範囲の中）
+
+# 領域 → 選択肢（重大度の順：CONTINUE < SLOW < STOP）
+zones:
+  none: CONTINUE
+  edge: SLOW
+  center: STOP
+
+# 正解の判定器の既定（シナリオの judge で上書きする）
+judge:
+  mode: serial              # serial：1 つずつ処理（手が空いたら最新の画像）／ pipelined：毎刻みの画像をそれぞれ遅れて出す
+  latency_s: 0.05           # 判定の遅れ（sim 時間）。serial では画像の古さが最大で約 2 × latency になる
+  confidence: 0.95          # 選んだ選択肢の確率（残りを 2 つに等分）
+  dropouts: []              # [[t0, t1], ...]：この間に判定を始めない（結果が出ない）
+  flicker: null             # {t: [t0, t1], period_s, alt: <zone>}：区間内で period_s ごとに正解と alt を入れ替える
+
+# 棒の通り道：x = path.x の線の上を、台の左（+y）の外から −y へ進む。足元の円（半径 intruder.radius）は、
+# 青い枠（x ±0.04）とブロックの通り道（x ±0.056）から x 方向で離れている（tests/test_m4a_intruder.py）
+path:
+  x: 0.075
+  hover: 0.005              # 棒の下端の、白い面からの高さ
+  places:                   # 名前の付いた位置の y
+    out: 0.55               # 画面の外（台の外。投影で確かめる）
+    edge: 0.185             # 緑の帯（足元 0.175〜0.195、帯は 0.16〜0.21）
+    center: 0.15            # 白い面（足元 0.14〜0.16、白い面は ±0.16）
+    boundary: 0.205         # 帯の外縁の近く（ちらつき用。足元 0.195〜0.215）
+
+# シナリオ：keys = [[t, 位置の名前], ...]。duration_s（任意）はそのシナリオの長さ。棒は前後のキーの間を直線で動き、最初のキーの前・最後のキーの後はその位置に止まる。
+# keys が空なら棒は待機位置のまま。judge は既定への上書き。
+scenarios:
+  - id: base_1
+    desc: 侵入なし（基準）
+    keys: []
+  - id: base_2
+    desc: 侵入なし（基準、2 本目）
+    keys: []
+  - id: edge_1
+    desc: 帯だけ（SLOW）
+    keys: [[3.5, out], [4.2, edge], [6.5, edge], [7.2, out]]
+  - id: edge_2
+    desc: 帯だけ（SLOW、早めに入る）
+    keys: [[2.5, out], [3.2, edge], [5.5, edge], [6.2, out]]
+  - id: center_1
+    desc: 白い面まで（STOP → 再開）
+    keys: [[3.5, out], [4.2, edge], [4.5, center], [6.5, center], [6.8, edge], [7.5, out]]
+  - id: center_2
+    desc: 白い面まで（STOP → 再開、長めに止まる）
+    keys: [[3.0, out], [3.7, edge], [4.0, center], [7.0, center], [7.3, edge], [8.0, out]]
+  - id: stale_latency
+    desc: 判定の遅れ 150 ms（serial では古さが stale_s を超える時間がある → G1 で STOP）
+    keys: []
+    judge: {latency_s: 0.15}
+  - id: stale_dropout
+    desc: 判定が 1 s 途切れる（G1 で STOP → 戻ってから hold を経て再開）
+    keys: []
+    judge: {dropouts: [[4.0, 5.0]]}
+  - id: flicker
+    desc: 帯の外縁で判定がちらつく（none と edge を 0.2 s ごと。SLOW から戻らない：G6）
+    keys: [[3.5, out], [4.0, boundary], [6.5, boundary], [7.0, out]]
+    judge: {flicker: {t: [4.0, 6.5], period_s: 0.2, alt: none}}
+  - id: low_conf
+    desc: 確信度 0.55（G2 で一段安全側：none でも SLOW）
+    keys: []
+    judge: {confidence: 0.55}
+    duration_s: 50          # 全区間 SLOW。0.3 倍の速さでは 20 s で押し終わらない（M4a-S）
+
+# SLOW の間の時間の伸ばし（M4a-S の B。scripts/sim/gate_loop.GatedCommand）：方策の行動を 1 刻みに time_scale 個の速さで取り出し、
+# 間を補間する。1.0 なら伸ばさない（M4a の本番 20261012_002121 と同じ）
+slow:
+  time_scale: 0.3
+
+# 指標（scripts/sim/gate_loop.gate_metrics）
+metrics:
+  settle_s: 0.3             # 正解が center になってから、判定の遅れ + この時間の後は、手先が止まっているはず（追従の時定数 0.1 s の 3 倍）
+
+# 動画（各シナリオの mp4 に、ゲートの状態・判定・reason の帯を重ねる）
+video:
+  fps: 30

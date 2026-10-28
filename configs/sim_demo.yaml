@@ -1,0 +1,39 @@
+# scripts/sim_gate_demo.py のシナリオ。ゲートの閾値は configs/gate.yaml から読む。
+duration_s: 10.0
+control_hz: 50       # ゲート／ロボット指令の周期（judge_hz の整数倍）
+judge_hz: 10         # 判定器が Decision を出す周期
+servo_gain: 0.3      # 1 制御周期あたりの追従率（q_now += gain * (q_cmd - q_now) の簡易モデル）
+
+# 方策の目標関節角（deg）: offset + amp * sin(2π f t + phase)
+joints:
+  - {name: shoulder_pan, offset: 0.0, amp: 30.0, freq_hz: 0.25, phase: 0.0}
+  - {name: shoulder_lift, offset: 20.0, amp: 15.0, freq_hz: 0.4, phase: 1.0}
+  - {name: elbow_flex, offset: -40.0, amp: 25.0, freq_hz: 0.3, phase: 2.0}
+  - {name: wrist_flex, offset: 10.0, amp: 20.0, freq_hz: 0.5, phase: 0.5}
+  - {name: wrist_roll, offset: 0.0, amp: 10.0, freq_hz: 0.2, phase: 0.0}
+  - {name: gripper, offset: 15.0, amp: 10.0, freq_hz: 0.6, phase: 0.0}
+plot_joints: [shoulder_pan, elbow_flex]
+
+# アームが障害物に当たって動けなくなる区間（この間 q_now は更新されない → G9 で検出）
+obstacles:
+  - {start: 1.5, end: 2.3}
+
+# 判定器出力の時系列。各区間は前の区間の until から自身の until まで。
+#   pattern: 判定周期ごとに順に繰り返す [choice, conf] の列
+#   dropout: true なら判定が出ない（判定器の停止 → G1 期限切れ）
+#   t_offset_s: Decision の t_mono を判定時刻からずらす（時計の不整合 → G1b）
+segments:
+  - {until: 3.0, label: {en: clear, ja: 異常なし}, pattern: [[CONTINUE, 0.92]]}
+  - {until: 4.5, label: {en: hand enters, ja: 手の侵入}, pattern: [[STOP, 0.95]]}
+  - until: 6.0
+    label: {en: flicker, ja: ちらつき}
+    pattern: [[CONTINUE, 0.70], [STOP, 0.80], [CONTINUE, 0.55], [SLOW, 0.75], [CONTINUE, 0.80], [STOP, 0.65]]
+  - {until: 6.4, label: {en: judge stall, ja: 判定停止}, dropout: true}
+  - {until: 6.6, label: {en: clock skew, ja: 時刻ずれ}, pattern: [[CONTINUE, 0.90]], t_offset_s: 0.05}
+  - {until: 7.4, label: {en: withdrawing, ja: 手の退避}, pattern: [[SLOW, 0.85]]}
+  - {until: 10.0, label: {en: recovered, ja: 回復}, pattern: [[CONTINUE, 0.93]]}
+
+# scripts/sim_gate_report.py の比較指標
+metrics:
+  steady_window: [8.5, 10.0]  # 定常区間 [s]（最後の再開 7.9 s から 0.6 s 後〜。再開直後の追いつきを除く）
+  restop_window_s: 1.0        # 再開からこの時間以内の再停止を数える [s]

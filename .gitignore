@@ -1,0 +1,46 @@
+# Python / tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Large / private artifacts (no data, weights or videos; recorded images may show people or rooms)
+data/
+models/
+outputs/
+samples/private/
+*.mp4
+*.avi
+*.npz
+*.npy
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.bin
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Claude Code per-user settings
+.claude/settings.local.json
+.claude/*.tmp.*
+
+# Camera config with the device serial number (public template: configs/camera.example.yaml)
+configs/camera.yaml
+
+# ROS 2 / Gazebo workspace (build outputs and fetched meshes are not committed)
+sim_ws/build/
+sim_ws/install/
+sim_ws/log/
+sim_ws/src/so101_description/meshes/
+
+# Real SO-101 ports (by-id names include serial numbers; public template: configs/so101_real.example.yaml)
+configs/so101_real.yaml

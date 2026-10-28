@@ -1,0 +1,216 @@
+# 提出動画の下書き（scripts/video/make_video.py が読む）。文言・長さ・区切りはここだけで直す。
+# 時刻の決まり：
+#   segments の from / to は閉ループの sim 時刻 [s]（0 = 閉ループの最初の刻み。M3 は sim_start）。
+#   captions の at / until と annotations の at は、その区間の出力の時刻 [s]（区間の頭が 0）。
+#   speed は再生の倍率（sim 時間に対して）。1 以外は画面に必ず倍率を出す。
+output:
+  width: 1280
+  height: 720
+  fps: 30
+  crf: 18
+  preset: medium
+  base: outputs/video          # git の管理外
+duration_limits_s: [60, 180]   # 提出の条件（1〜3 分）
+target_s: 150
+
+font:
+  regular: "Noto Sans CJK JP"
+  bold: "Noto Sans CJK JP:style=Bold"
+
+camera:
+  topic: /overhead_camera/image
+  crop: [120, 90, 640, 480]    # 元の画像（640×480）から切り出す範囲 [x0, y0, x1, y1]。4:3 → 960×720 に拡大
+
+colors:                        # RGB
+  bg: [22, 26, 32]
+  panel: [34, 39, 48]
+  text: [240, 242, 245]
+  sub: [168, 176, 188]
+  accent: [255, 206, 84]
+  no_gate: [90, 96, 108]
+  before: "#d1495b"            # 比較のグラフ：直す前
+  after: "#2e86de"             # 比較のグラフ：直した後
+
+labels:
+  states: {CONTINUE: "継続 CONTINUE", SLOW: "減速 SLOW", STOP: "停止 STOP"}
+  choices: {CONTINUE: "継続", SLOW: "減速", STOP: "停止"}
+  zones: {none: "なし", edge: "緑の帯", center: "白い面"}
+  reasons:
+    ok: ""
+    no_decision: "判定がまだない"
+    stale: "判定が古い（G1）"
+    future: "時刻の不整合（G1）"
+    low_conf: "確信度が低い（G2）"
+    invalid: "不正な入力"
+    follow_error: "追従誤差（G9）"
+  no_gate: "ゲートなし（ACT のみ）"
+  judge: "判定"
+  truth: "正解の位置"
+  reason: "理由"
+  age: "古さ"
+  sim_time: "sim 時刻"
+  playback: "再生"
+  resume: "再開（方策をリセット）"
+  hold: "再開待ち（判定が 0.5 s 続くまで）"
+  speed: {paused: "一時停止", normal: "×1（等倍）", fast: "×{s} 倍速", slow: "×{s} スロー"}
+
+# 素材：outputs/sim/<run>/bags/<bag>（既存の bag。新しいシミュレータの実行はしない）
+sources:
+  m3d_seed109: {run: 20261011_213843_m3d_eval_ck100k, bag: ep_0009_seed109}
+  m3e_x5: {run: 20261011_224133_m3e_start, bag: ep_0010_x+5.0}
+  center_after: {run: 20261012_005159_m4a_slowfix, bag: ep_0002_center_1}
+  edge2_before: {run: 20261012_002121_m4a_gate, bag: ep_0003_edge_2}
+  edge2_after: {run: 20261012_005159_m4a_slowfix, bag: ep_0001_edge_2}
+  stale_latency: {run: 20261012_002121_m4a_gate, bag: ep_0006_stale_latency}
+  v2_center: {run: 20261012_102139_m4b_v2, bag: ep_0003_center_1}   # M4b：画像の判定器 v2
+  v2_base: {run: 20261012_102139_m4b_v2, bag: ep_0000_base_1}
+
+# 判定が何かを、ゲートの出る区間に必ず書く（tests/test_video_core.py が確かめる）
+v2_note: &v2_note "判定：画像の判定器 v2（カメラ画像だけから。MobileNetV3-Small をシミュレータの画像 9,896 枚で学習。推論 p95 2 ms）"
+oracle_note: &oracle_note "この比較の判定：シミュレータの正解（減速の直し方だけを比べるため）"
+latency_note: &latency_note "左：シミュレータの正解＋遅れ 150 ms（模擬）\n右：画像の判定器 v2（実測の遅れ）"
+
+sections:
+  - name: title
+    kind: title
+    duration_s: 5
+    title: "カメラ画像で判定し、止まる・緩める安全ゲート"
+    subtitle: "学習した押し動作（ACT）に画像の判定器とゲートを組み込み、シミュレーションで確かめる"
+    lines:
+      - "SO-101 ロボットアーム × LeRobot ACT"
+      - "シミュレーション（Gazebo Harmonic）"
+    footer: "Physical AI 講座 応用編1 最終課題（＋α）"
+
+  - name: task
+    kind: still
+    heading: "2. 作業台とタスク"
+    source: center_after
+    t: 5.8
+    duration_s: 18
+    annotations:               # 座標は元の画像（640×480）の画素
+      - {at: 0.5, text: "黄色のブロック", target: [318, 322], label: [400, 400]}
+      - {at: 1.5, text: "青い枠（目標）", target: [238, 322], label: [150, 365]}
+      - {at: 3.0, text: "SO-101", target: [540, 250], label: [560, 150]}
+      - {at: 6.0, text: "赤い棒（侵入物）", target: [175, 205], label: [140, 130]}
+      - {at: 9.0, text: "緑の帯 → 減速", target: [160, 440], label: [180, 465]}
+      - {at: 10.0, text: "白い面 → 停止", target: [250, 390], label: [270, 420]}
+    captions:
+      - {at: 0, until: 6, text: "タスク：黄色のブロックを、青い枠まで押す。映像は台の真上のカメラ"}
+      - {at: 6, until: 12, text: "赤い棒は侵入物（人の手の代わり）。棒の位置で判定が変わる"}
+      - {at: 12, until: 18, text: "棒が緑の帯 → 減速（SLOW）\n白い面 → 停止（STOP）\nいない → 継続（CONTINUE）"}
+
+  - name: act
+    kind: clip
+    heading: "3. 押す動作（ACT）"
+    source: m3d_seed109
+    gate: false
+    pre_hold_s: 3
+    segments:
+      - {from: 0, to: 16, speed: 1}
+    hold_s: 6
+    captions:
+      - {at: 0, until: 6, text: "計画で作ったお手本 50 本で ACT を学習（100,000 ステップ）"}
+      - {at: 6, until: 13, text: "カメラ画像と関節角から、次の 100 刻み分の関節の目標を出す（30 Hz）"}
+      - {at: 13, until: 19, text: "評価 20 本：20/20 成功\n枠の中心からの誤差 平均 1.6 cm"}
+      - {at: 19, until: 25, text: "推論の遅れ p95 約 11 ms（GPU）"}
+
+  - name: limit
+    kind: clip
+    heading: "4. 頑健さの限界"
+    source: m3e_x5
+    gate: false
+    pre_hold_s: 2
+    segments:
+      - {from: 0, to: 2, speed: 2}
+      - {from: 2, to: 10, speed: 1.5}
+      - {from: 10, to: 16, speed: 3}
+    hold_s: 6
+    chart:
+      kind: m3e_slope
+      report: 20261011_234045_m3e_report   # outputs/sim/ の下（start.csv と report.json）
+      title: "押す位置の x（cm）"
+      inside: "範囲の中 傾き 0.90"
+      outside: "範囲の外 ≈ 0（頭打ち）"
+    captions:
+      - {at: 0, until: 8, text: "お手本の初期位置は x ±2.5 cm の範囲。ここでは範囲の外（x +5 cm）から始める"}
+      - {at: 8, until: 12.5, text: "押す位置は範囲の端（約 +2.2 cm）で止まり、爪の端で押してブロックが回る → 失敗"}
+      - {at: 12.5, until: 16.33, text: "お手本の範囲の外へは広げられない（初期位置の評価 11/17 成功）"}
+
+  - name: gate
+    kind: clip
+    heading: "5. セーフティ・ゲート"
+    source: v2_center
+    gate: true
+    note: *v2_note
+    pre_hold_s: 3
+    segments:
+      - {from: 1, to: 3, speed: 2}      # 1 s から（起動直後の保持 0.57 s は映さない）
+      - {from: 3, to: 4, speed: 1}
+      - {from: 4, to: 5, speed: 0.5}
+      - {from: 5, to: 12, speed: 1}
+      - {from: 12, to: 20, speed: 2}
+    hold_s: 4
+    captions:
+      - {at: 0, until: 5, text: "押している途中に、赤い棒（侵入物）が入ってくる。判定はカメラ画像だけから（画像の判定器 v2）"}
+      - {at: 5, until: 8.9, text: "帯で減速 → 白い面に入って 0.03 s で停止。その場で保持する"}
+      - {at: 8.9, until: 14, text: "棒が出て、判定が 0.5 s 続いたら再開（0.77 s 後）。方策をリセットし、今の画像から推論し直す"}
+      - {at: 14, until: 22, text: "押し切って成功（誤差 0.24 cm）。6 つの場面とも成功、白い面で継続と答えた判定 0 回"}
+
+  - name: slow_compare
+    kind: compare
+    heading: "5. 減速の比較（直す前 ／ 直した後）"
+    sources: [edge2_before, edge2_after]
+    titles: ["直す前", "直した後（今の版）"]
+    note: *oracle_note
+    pre_hold_s: 3
+    segments:
+      - {from: 1, to: 2, speed: 2}      # 1 s から（起動直後の保持は映さない）
+      - {from: 2, to: 6, speed: 1}
+      - {from: 6, to: 7.5, speed: 0.5}
+      - {from: 7.5, to: 20, speed: 1}
+    hold_s: 7
+    graph:
+      title: "手先の速さ（cm/s）"
+      t_range: [0, 20]
+      y_max: 12
+      legend: ["直す前", "直した後"]
+      slow_label: "減速の区間"
+    captions:
+      - {at: 0, until: 3.5, text: "棒が緑の帯にだけ入る場面。同じ方策・同じ台本で、左が直す前、右が直した後"}
+      - {at: 3.5, until: 7.5, text: "直す前：減速中も、手先の速さは基準の 0.83〜0.89 倍（ほとんど落ちない）"}
+      - {at: 7.5, until: 11.5, text: "直す前：帯を抜けると、遅れを取り戻そうとして基準の 2.3 倍に跳ねる"}
+      - {at: 11.5, until: 18.5, text: "直した後：指令列を 0.3 倍の速さで読み出し、減速中の速度の上限も下げた → 0.29〜0.33 倍"}
+      - {at: 18.5, until: 30, text: "抜けた後も跳ばない（基準の 0.82〜0.99 倍）。減速の場面は 5 本とも成功"}
+
+  - name: latency
+    kind: compare
+    heading: "6. 判定の遅れ（150 ms ／ 画像の判定器 v2）"
+    sources: [stale_latency, v2_base]
+    titles: ["遅れ 150 ms（模擬）", "画像の判定器 v2"]
+    note: *latency_note
+    pre_hold_s: 2
+    segments:
+      - {from: 0, to: 20, speed: 4}
+    hold_s: 11
+    graph:
+      title: "手先の速さ（cm/s）"
+      t_range: [0, 20]
+      y_max: 15
+      legend: ["遅れ 150 ms", "画像の判定器 v2"]
+      slow_label: "減速の区間"
+    captions:
+      - {at: 0, until: 6, text: "棒は入れない。左は判定の遅れを 150 ms にした場合、右は画像の判定器 v2（ほかは同じ）"}
+      - {at: 6, until: 11, text: "150 ms では判定が届くころには古く（0.2 s 超）、ゲートは停止を続ける ＝ 安全側だが動けない"}
+      - {at: 11, until: 18, text: "v2 は遅れ p95 6 ms・古さ最大 73 ms。止まらずに押し切る"}
+
+  - name: summary
+    kind: card
+    heading: "まとめ"
+    duration_s: 15
+    lines:
+      - {at: 0.3, text: "ACT（お手本 50 本）：範囲の中では 20/20 成功。範囲の外へは広げられない"}
+      - {at: 2.0, text: "画像の判定器 v2：test 1,729 枚で正解率 0.98、白い面 → 継続 0 件、推論 p95 2 ms"}
+      - {at: 3.7, text: "安全ゲート（v2）：6/6 成功、白い面で 0.03 s で停止、棒が出て 0.77 s 後に再開"}
+      - {at: 5.4, text: "減速を直した：基準の 0.83〜0.89 倍 → 0.29〜0.33 倍、抜けた後の跳びなし"}
+      - {at: 7.1, text: "判定の遅れは約 60 ms が上限。v2 は閉ループの中で p95 6 ms"}
+    footer: "すべてシミュレーション（Gazebo）。判定器はシミュレータの画像で学習・評価（実機のカメラでは未確認）"

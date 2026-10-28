@@ -1,0 +1,19 @@
+# M4b：画像の判定器で M4a のシナリオを流し直す（scripts/sim/gate_demo_sim.py --judge <名前>）。
+# 方策・ゲート・棒の通り道・シナリオの中身は configs/m4a.yaml のまま。ここでは、流すシナリオと判定の設定の上書きだけを置く。
+
+# 判定器（scripts/sim/judge_server.py がメインの uv 環境で読み込む）。model は scripts/train_student.py の出力
+judges:
+  v1: {kind: v1, model: models/judge/20261012_095718_v1_grid}  # pooled + grid2、center の logit +1.5（judge_sim.yaml）
+  v2: {kind: v2, model: models/judge/20261012_100019_v2}
+server_start_timeout_s: 180
+device: cuda
+
+# 流すシナリオ（m4a.yaml の id）。比べる相手の oracle も --judge oracle --m4b で同じ組を流す
+scenarios: [base_1, edge_1, edge_2, center_1, center_2, flicker]
+
+# 判定の設定の上書き（m4a.yaml の judge とシナリオの judge の後に当てる）
+judge_overrides:            # すべての判定器（oracle を含む）
+  flicker: null             # 注入のちらつきは外す。flicker のシナリオは「帯の外縁に置いた棒」を見る（判定器自身のちらつき）
+image_judge_overrides:      # 画像の判定器だけ
+  latency_s: null           # 遅れ＝判定器自身の latency_ms（実時間の ms を sim 時間の ms として 1:1 で使う）
+  confidence: null          # 確信度は判定器の確率をそのまま使う（m4a の 0.95 で上書きしない）

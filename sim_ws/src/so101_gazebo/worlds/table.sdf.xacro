@@ -1,0 +1,206 @@
+<?xml version="1.0"?>
+<!-- Work table (grey top, green warning band, white protected area), the blue target frame
+     (visual only), the block to push and a C920-like camera looking down at it from the front at
+     an angle. All numbers come from configs/sim.yaml. -->
+<sdf version="1.9" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:arg name="sim_config" default=""/>
+  <!-- physics engine override (launch argument physics_engine); empty: configs/sim.yaml physics.engine -->
+  <xacro:arg name="physics_engine" default=""/>
+  <xacro:property name="cfg" value="${xacro.load_yaml('$(arg sim_config)')}"/>
+  <xacro:property name="t" value="${cfg['table']}"/>
+  <xacro:property name="cam" value="${cfg['camera']}"/>
+  <xacro:property name="ph" value="${cfg['physics']}"/>
+  <xacro:property name="engine_arg" value="$(arg physics_engine)"/>
+  <xacro:property name="engine" value="${engine_arg if engine_arg else ph.get('engine', 'dartsim')}"/>
+  <xacro:property name="h" value="${t['height']}"/>
+  <xacro:property name="ov" value="${t['overlay_thickness']}"/>
+  <xacro:property name="gx" value="${t['white'][0] + 2 * t['band_width']}"/>
+  <xacro:property name="gy" value="${t['white'][1] + 2 * t['band_width']}"/>
+  <xacro:property name="blk" value="${cfg['block']}"/>
+  <xacro:property name="tf" value="${cfg['target_frame']}"/>
+  <!-- top of the white area (two overlay plates on the table top) -->
+  <xacro:property name="surf" value="${h + 2 * ov}"/>
+
+  <!-- Each static model has ONE link holding several collisions/visuals: bullet-featherstone
+       does not support several root links in a model (it disables all but one). -->
+  <xacro:macro name="plate" params="name sx sy sz z r g b">
+    <collision name="${name}">
+      <pose>0 0 ${z} 0 0 0</pose>
+      <geometry><box><size>${sx} ${sy} ${sz}</size></box></geometry>
+    </collision>
+    <visual name="${name}">
+      <pose>0 0 ${z} 0 0 0</pose>
+      <geometry><box><size>${sx} ${sy} ${sz}</size></box></geometry>
+      <material><ambient>${r} ${g} ${b} 1</ambient><diffuse>${r} ${g} ${b} 1</diffuse></material>
+    </visual>
+  </xacro:macro>
+
+  <!-- one side of the target frame: a thin visual-only plate (no collision) -->
+  <xacro:macro name="frame_line" params="name x y sx sy">
+    <visual name="${name}">
+      <pose>${x} ${y} ${surf + tf['thickness'] / 2} 0 0 0</pose>
+      <geometry><box><size>${sx} ${sy} ${tf['thickness']}</size></box></geometry>
+      <material>
+        <ambient>${tf['rgba'][0]} ${tf['rgba'][1]} ${tf['rgba'][2]} 1</ambient>
+        <diffuse>${tf['rgba'][0]} ${tf['rgba'][1]} ${tf['rgba'][2]} 1</diffuse>
+      </material>
+    </visual>
+  </xacro:macro>
+
+  <world name="table">
+    <physics name="default" type="ignored">
+      <max_step_size>${ph['max_step_size']}</max_step_size>
+      <real_time_factor>${ph['real_time_factor']}</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics">
+      <engine><filename>gz-physics-${engine}-plugin</filename></engine>
+    </plugin>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <scene>
+      <ambient>0.6 0.6 0.6 1</ambient>
+      <background>0.8 0.8 0.8 1</background>
+      <shadows>true</shadows>
+    </scene>
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 3 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.3 0.2 -1</direction>
+    </light>
+
+    <model name="ground">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision"><geometry><plane><normal>0 0 1</normal><size>10 10</size></plane></geometry></collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>10 10</size></plane></geometry>
+          <material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.5 0.5 0.5 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="work_table">
+      <static>true</static>
+      <link name="link">
+        <xacro:plate name="top" sx="${t['size'][0]}" sy="${t['size'][1]}" sz="${t['thickness']}"
+                     z="${h - t['thickness'] / 2}" r="0.55" g="0.55" b="0.55"/>
+        <xacro:plate name="green_band" sx="${gx}" sy="${gy}" sz="${ov}" z="${h + ov / 2}"
+                     r="0.10" g="0.60" b="0.20"/>
+        <xacro:plate name="white_area" sx="${t['white'][0]}" sy="${t['white'][1]}" sz="${ov}"
+                     z="${h + ov * 1.5}" r="0.95" g="0.95" b="0.95"/>
+      </link>
+    </model>
+
+    <!-- blue target frame: inner square tf['inner'], lines tf['line_width'] wide, visual only -->
+    <xacro:property name="fo" value="${(tf['inner'] + tf['line_width']) / 2}"/>
+    <xacro:property name="fl" value="${tf['inner'] + 2 * tf['line_width']}"/>
+    <model name="target_frame">
+      <static>true</static>
+      <link name="link">
+        <xacro:frame_line name="near" x="${tf['center'][0] - fo}" y="${tf['center'][1]}"
+                          sx="${tf['line_width']}" sy="${fl}"/>
+        <xacro:frame_line name="far" x="${tf['center'][0] + fo}" y="${tf['center'][1]}"
+                          sx="${tf['line_width']}" sy="${fl}"/>
+        <xacro:frame_line name="left" x="${tf['center'][0]}" y="${tf['center'][1] + fo}"
+                          sx="${fl}" sy="${tf['line_width']}"/>
+        <xacro:frame_line name="right" x="${tf['center'][0]}" y="${tf['center'][1] - fo}"
+                          sx="${fl}" sy="${tf['line_width']}"/>
+      </link>
+    </model>
+
+    <!-- the block to push: a box with mass, inertia and friction; its exact pose is published -->
+    <xacro:property name="bx" value="${blk['size'][0]}"/>
+    <xacro:property name="by" value="${blk['size'][1]}"/>
+    <xacro:property name="bz" value="${blk['size'][2]}"/>
+    <xacro:property name="bm" value="${blk['mass']}"/>
+    <model name="${blk['name']}">
+      <pose>${blk['initial_xy'][0]} ${blk['initial_xy'][1]} ${surf + bz / 2} 0 0 ${blk['initial_yaw']}</pose>
+      <link name="link">
+        <inertial>
+          <mass>${bm}</mass>
+          <inertia>
+            <ixx>${bm * (by * by + bz * bz) / 12}</ixx>
+            <iyy>${bm * (bx * bx + bz * bz) / 12}</iyy>
+            <izz>${bm * (bx * bx + by * by) / 12}</izz>
+            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>${bx} ${by} ${bz}</size></box></geometry>
+          <surface>
+            <friction><ode><mu>${blk['mu']}</mu><mu2>${blk['mu']}</mu2></ode></friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>${bx} ${by} ${bz}</size></box></geometry>
+          <material>
+            <ambient>${blk['rgba'][0]} ${blk['rgba'][1]} ${blk['rgba'][2]} 1</ambient>
+            <diffuse>${blk['rgba'][0]} ${blk['rgba'][1]} ${blk['rgba'][2]} 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+        <publish_link_pose>false</publish_link_pose>
+        <publish_model_pose>true</publish_model_pose>
+        <publish_collision_pose>false</publish_collision_pose>
+        <publish_visual_pose>false</publish_visual_pose>
+        <publish_nested_model_pose>false</publish_nested_model_pose>
+        <use_pose_vector_msg>false</use_pose_vector_msg>
+        <update_frequency>${blk['pose_rate']}</update_frequency>
+      </plugin>
+    </model>
+
+    <!-- M4a intruder: a vertical rod, visual only (no collision), no gravity; moved with set_pose.
+         It waits far away (intruder.park), out of the camera and its shadow off the table. -->
+    <xacro:property name="itr" value="${cfg['intruder']}"/>
+    <model name="${itr['name']}">
+      <pose>${itr['park'][0]} ${itr['park'][1]} ${h + itr['park'][2]} 0 0 0</pose>
+      <link name="link">
+        <gravity>false</gravity>
+        <inertial>
+          <mass>0.1</mass>
+          <inertia><ixx>1e-3</ixx><iyy>1e-3</iyy><izz>1e-5</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="visual">
+          <geometry><cylinder><radius>${itr['radius']}</radius><length>${itr['length']}</length></cylinder></geometry>
+          <material>
+            <ambient>${itr['rgba'][0]} ${itr['rgba'][1]} ${itr['rgba'][2]} 1</ambient>
+            <diffuse>${itr['rgba'][0]} ${itr['rgba'][1]} ${itr['rgba'][2]} 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+        <publish_link_pose>false</publish_link_pose>
+        <publish_model_pose>true</publish_model_pose>
+        <publish_collision_pose>false</publish_collision_pose>
+        <publish_visual_pose>false</publish_visual_pose>
+        <publish_nested_model_pose>false</publish_nested_model_pose>
+        <use_pose_vector_msg>false</use_pose_vector_msg>
+        <update_frequency>${itr['pose_rate']}</update_frequency>
+      </plugin>
+    </model>
+
+    <model name="${cam['name']}">
+      <static>true</static>
+      <pose>${cam['xyz'][0]} ${cam['xyz'][1]} ${h + cam['xyz'][2]} ${cam['rpy'][0]} ${cam['rpy'][1]} ${cam['rpy'][2]}</pose>
+      <link name="link">
+        <sensor name="camera" type="camera">
+          <always_on>true</always_on>
+          <update_rate>${cam['update_rate']}</update_rate>
+          <topic>${cam['topic']}</topic>
+          <camera>
+            <horizontal_fov>${cam['hfov']}</horizontal_fov>
+            <image><width>${cam['width']}</width><height>${cam['height']}</height><format>R8G8B8</format></image>
+            <clip><near>${cam['near']}</near><far>${cam['far']}</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+  </world>
+</sdf>

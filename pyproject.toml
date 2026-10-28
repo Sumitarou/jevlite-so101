@@ -1,0 +1,70 @@
+[project]
+name = "jevlite"
+version = "0.1.0"
+description = "Fast local CONTINUE/SLOW/STOP judge and safety gate for SO-101 (LeRobot)"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [
+    { name = "Sumitarou", email = "32852712+Sumitarou@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    "numpy>=1.26",
+    "opencv-python-headless>=5.0.0.93",
+    "pillow>=10.0",
+    "protobuf>=7.36.2",
+    "pyyaml>=6.0",
+    "scikit-learn>=1.5",
+    "sentencepiece>=0.2.2",
+    "torch>=2.11.0",
+    "torchvision==0.26.0",
+    "transformers>=5.19.0",
+]
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.11.2",
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.24,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = ["jevlite", "gate"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["*.md"]  # ruff>=0.16 would reformat code blocks in docs
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["jevlite", "gate", "scripts", "bagio", "convert_bags", "train_act", "plot_progress", "policy_runtime", "policy_server", "units"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "hw: requires physical hardware (camera, robot arm)",
+    "ollama: requires a running Ollama server on localhost:11434",
+    "gpu: requires a CUDA GPU and model weights",
+    "sim: starts a headless Gazebo simulation (needs ROS 2 Jazzy and a built sim_ws)",
+]
+addopts = "-m 'not hw and not ollama and not gpu and not sim'"

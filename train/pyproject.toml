@@ -1,0 +1,33 @@
+[project]
+name = "jevlite-train"
+version = "0.1.0"
+description = "LeRobot (ACT) training environment for the SO-101 Gazebo push demos (kept apart from the main env)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "lerobot[dataset,training,feetech]==0.6.1",
+    "rosbags==0.11.6",
+    "torch==2.11.0",
+    "torchvision",
+    "pyyaml>=6.0",
+    "matplotlib>=3.9",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", ".."]
+addopts = "-p no:cacheprovider"

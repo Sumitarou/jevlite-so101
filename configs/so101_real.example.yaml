@@ -1,0 +1,27 @@
+# SO-101 実機の接続設定の公開用テンプレート。configs/so101_real.yaml にコピーして空欄を埋める。
+# so101_real.yaml はポート（by-id にシリアル番号を含む）を持つので .gitignore 済み（リポジトリに入れない）。
+# ポートは lerobot-find-port で確かめ、/dev/ttyACM* ではなく /dev/serial/by-id/… を書く（抜き差しで番号が入れ替わるため）。
+#   ls -l /dev/serial/by-id/
+# LeRobot 0.6.1 の既定：use_degrees: true（腕 5 関節は度、0 = キャリブレーションで記録した可動範囲の中央。gripper は 0〜100）。
+# キャリブレーション結果は LeRobot の既定の場所（~/.cache/huggingface/lerobot/calibration/robots/so_follower/<id>.json と teleoperators/so_leader/<id>.json。リポジトリの外。docs/real_robot_plan.md の 4.）。
+leader:
+  type: so101_leader
+  port: ""            # ls -l /dev/serial/by-id/ で確かめたもの
+  id: leader_arm      # キャリブレーションファイル名になる。leader と follower で別名にする
+  use_degrees: true
+follower:
+  type: so101_follower
+  port: ""            # ls -l /dev/serial/by-id/ で確かめたもの
+  id: follower_arm
+  use_degrees: true
+  # LeRobot 側の 1 回の指令の上限（度/刻み。現在位置からの差をこの値で切る）。ゲートの G8 とは別の最後の歯止め
+  max_relative_target: 5.0  # 最初の動作確認用の仮の値。実機で調整
+  disable_torque_on_disconnect: true
+cameras:
+  front:
+    type: opencv
+    index_or_path: ""   # configs/camera.yaml の device と同じもの
+    width: 640
+    height: 480
+    fps: 30
+    fourcc: MJPG

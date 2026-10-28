@@ -1,0 +1,7 @@
+# v0 ゼロショット判定器（SigLIP）の設定。テキストプロンプトは configs/choices.yaml。
+model_id: google/siglip-base-patch16-224
+revision: 7fd15f0689c79d79e38b1c2e2e2370a7bf2761ed  # 2024-09-26。変更時は check_env を再実行
+device: auto        # auto = cuda があれば cuda、なければ cpu
+dtype: float16      # cuda 時のみ有効。cpu は常に float32
+softmax_scale: null # 選択肢間 softmax の温度。null = モデルの logit_scale.exp() を使う
+warmup: 3           # 初期化時のダミー判定回数（遅延統計から除外される）

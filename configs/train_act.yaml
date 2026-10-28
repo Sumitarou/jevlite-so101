@@ -1,0 +1,56 @@
+# M3：Gazebo のお手本（rosbag2 mcap）→ LeRobotDataset → ACT。実行は train/ の uv 環境（lerobot 0.6.1）。
+# 単位はシミュレータのまま（関節は rad）。実機の LeRobot SO-101（腕は度または -100〜100、グリッパーは 0〜100）
+# への変換は、評価・実機ブリッジの入口の 1 か所でまとめて行う予定（M3a で決めた）。
+
+dataset:                  # train/convert_bags.py
+  src: data/sim_demos/m2_50eps          # gen_demos.py の出力（ep_XXXX_seedN/ と episodes.jsonl）
+  root: data/lerobot/so101_sim_push_m2_arm5  # 保存先（git の管理外）。既にあれば止まる（上書きしない）
+  repo_id: local/so101_sim_push_m2_arm5      # Hugging Face へは push しない
+  robot_type: so101_sim
+  fps: 30                               # = configs/sim.yaml demo.rate_hz
+  task: push the yellow block into the blue frame
+  only_success: true                    # 成功したエピソードだけを使う
+  # 1 フレーム = /demo/action の 1 件。state・action に入れる関節とその順番（名前で選ぶ）。
+  # グリッパーはお手本の間ずっと一定（std ≈ 0 で MEAN_STD 正規化が壊れる。M3a）なので外して 5 次元にする
+  joints: [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll]
+  # 方策が出さない関節の値。評価・実機ブリッジで 6 次元に戻すときに使う（train/units.py の予定）
+  fixed_joints:
+    gripper: -0.16                      # = configs/sim.yaml ik.fixed.gripper（閉じたまま）
+  topics:
+    action: /demo/action                # sensor_msgs/JointState（指令）
+    state: /joint_states                # action の時刻に線形補間
+    image: /overhead_camera/image       # action の時刻以前で最も新しい画像（rgb8）
+  image_key: observation.images.overhead
+  # 検査（超えたら変換を止める）
+  hold_state: false                     # 最初の /joint_states より前の action（記録の購読が遅れた分）は捨てる
+  max_image_age_s: 0.05                 # action と画像の時刻の差の上限
+  max_tick_jitter_s: 0.002              # action の間隔と 1/fps の差の上限（LeRobot は timestamp = index/fps）
+  video:                                # 動画のエンコード（lerobot 0.6.1 の既定と同じ値）
+    vcodec: libsvtav1
+    crf: 30
+    pix_fmt: yuv420p
+    g: 2
+
+check:                    # train/check_dataset.py（変換後の確認）
+  min_std: 0.001                        # これより std が小さい次元に印を付ける（rad）
+  compare_episode: 0                    # bag の生画像と読み戻した画像を比べるエピソード
+  plot_episode: 0
+
+train:                    # train/train_act.py（lerobot 0.6.1 の lerobot_train.train() を同じプロセスで呼ぶ）
+  out_dir: models/act                   # models/act/<日時>_<name>/（git の管理外）。lerobot の出力はその下の lerobot/
+  policy: act
+  device: cuda
+  seed: 1000
+  steps: 100000                         # M3c（batch 8 で約 4.3 時間、約 49 エポック）。M3b の試運転は --steps 300
+  batch_size: 8                         # lerobot の既定
+  num_workers: 4
+  log_freq: 100                         # progress.jsonl に 1 行書く間隔（ステップ。約 15 s ごと）
+  save_freq: 10000                      # チェックポイントの間隔（ステップ。1 つ約 590 MB）
+  policy_args:                          # --policy.<key>=<value> としてそのまま渡す（ACT の既定と同じ値）
+    chunk_size: 100
+    n_action_steps: 100
+    vision_backbone: resnet18
+    pretrained_backbone_weights: ResNet18_Weights.IMAGENET1K_V1
+    optimizer_lr: 1.0e-5
+    optimizer_lr_backbone: 1.0e-5
+  ollama_url: http://localhost:11434    # 学習の前に /api/ps でモデルが VRAM に残っていないか確かめる（設定は変えない）

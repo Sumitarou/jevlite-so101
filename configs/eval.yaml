@@ -1,0 +1,120 @@
+# scripts/eval_samples.py（段階 4a の評価）と scripts/contact_sheet.py（確認用の一覧画像）の設定。
+# ラベルの定義は docs/labeling.md。
+
+out_root: outputs/eval               # 結果は <out_root>/<セッション>/（git の無視対象）
+# 正解ラベル（metadata.csv）→ 判定器の選択肢。緑の帯＝警告領域（SLOW）、白い面＝保護領域（STOP）
+label_to_choice:
+  none: CONTINUE                     # A
+  edge: SLOW                         # B
+  center: STOP                       # C
+default_models: [v0, "qwen2.5vl:7b", "gemma3:4b"]
+optional_models: ["qwen3.5:27b"]     # --models で名前を指定したときだけ実行する
+# 教師の既定は def-v2-ref（2026-10-11 の評価で決定）。
+# オフラインのラベル付けは qwen3.5:27b、速さが必要な確認には qwen2.5vl:7b。
+teacher_default:
+  prompt: def-v2-ref
+  model_offline: "qwen3.5:27b"
+  model_quick: "qwen2.5vl:7b"
+default_prompts: [def-v2-ref]       # --prompts を省略したときの評価（v0 はラベルが無いので飛ばされる）
+warmup: 1                            # モデル×プロンプトごとに最初に捨てる判定の回数（モデルの読み込み時間を除く）
+ollama_check_timeout_s: 3.0
+
+# 評価を分けて集計する画像の組（セッションごと）。"<ラベル>/<開始>-<終了>" で番号の範囲、"<ラベル>/<番号>" で 1 枚。
+# 結果は「all（全体）」「各組」「other（どの組にも入らないもの）」に分けて集計する。
+subsets:
+  20261011-desk:
+    boundary:   # 境目の対：同じ位置から少し内側に入れた edge / center の対（docs/labeling.md）
+      - edge/00001-00009
+      - center/00001-00009
+
+# 教師（Ollama）のプロンプト。null は configs/teacher.yaml の prompt（今の既定）を使う
+teacher_prompts:
+  baseline: null
+  def-v1: |
+    You are a safety monitor for a small desktop robot arm. The camera looks down at the work
+    table. The table has a WHITE surface (the protected area) surrounded by a GREEN tape band
+    about 5 cm wide (the warning area).
+    Decide only from what you can see in the image, using exactly one choice:
+    - STOP: any object or hand overlaps the WHITE surface, even partially.
+    - SLOW: an object or hand is on the GREEN band only and does not reach the white surface.
+    - CONTINUE: there is no hand and no object on the white surface or on the green band.
+    If you are unsure between two choices, choose the stricter one (STOP > SLOW > CONTINUE).
+    Respond in JSON only.
+
+  # def-v2：白い面と緑のテープは作業台（背景）であって物ではないと明記し、選択肢ではなく属性を答えさせる。
+  # 選択肢はコードで決める（teacher_modes の mode: attr）：object_present=false → A、true で touches_white=false → B、
+  # touches_white=true → C（object_present=false との矛盾も C にして記録）。
+  def-v2-attr: |
+    You are a safety monitor for a small desktop robot arm. The camera looks down at the work table.
+    The table top has a WHITE area in the middle, surrounded by a GREEN tape band about 5 cm wide.
+    The white area and the green tape are part of the table itself (the background). They are never objects.
+    An object means a hand, an arm of a person, a tool, a cup, a box or anything else placed on or above the table.
+    Shadows are not objects.
+    Answer in JSON with these fields, in this order:
+    - reason: one short sentence on any hand or object you see and where it is.
+    - object_present: true if any hand or object is on the white area or on the green tape, otherwise false.
+    - touches_white: true if any hand or object touches or overlaps the white area, even partially, otherwise false.
+    If you are unsure, answer true.
+  def-v2-ref: |
+    You are a safety monitor for a small desktop robot arm. The camera looks down at the work table.
+    The table top has a WHITE area in the middle, surrounded by a GREEN tape band about 5 cm wide.
+    The white area and the green tape are part of the table itself (the background). They are never objects.
+    An object means a hand, an arm of a person, a tool, a cup, a box or anything else placed on or above the table.
+    Shadows are not objects.
+    You get two images. The FIRST image is a reference photo of the same table with nothing on it.
+    The SECOND image is the one to judge. Compare the second image with the first: anything in the
+    second image that is not in the first is an object (shadows excluded). Answer only about the second image.
+    Answer in JSON with these fields, in this order:
+    - reason: one short sentence on any hand or object you see in the second image and where it is.
+    - object_present: true if any hand or object is on the white area or on the green tape, otherwise false.
+    - touches_white: true if any hand or object touches or overlaps the white area, even partially, otherwise false.
+    If you are unsure, answer true.
+
+  # def-v2.1：def-v2-ref の影の扱いだけを変更（影か物か迷ったら物＝止まりすぎ側）。ラベルの定義（影だけなら none）は変えない。
+  # 【不採用】効果なし（2026-10-11）。比較のために残す。
+  def-v2.1-ref: |
+    You are a safety monitor for a small desktop robot arm. The camera looks down at the work table.
+    The table top has a WHITE area in the middle, surrounded by a GREEN tape band about 5 cm wide.
+    The white area and the green tape are part of the table itself (the background). They are never objects.
+    An object means a hand, an arm of a person, a tool, a cup, a box or anything else placed on or above the table.
+    A shadow alone is not an object. If you are not sure whether something is a shadow or an object,
+    treat it as an object (stopping too often is safer than missing something).
+    You get two images. The FIRST image is a reference photo of the same table with nothing on it.
+    The SECOND image is the one to judge. Compare the second image with the first: anything in the
+    second image that is not in the first is an object (a shadow alone is excluded, but if unsure, count it as an object). Answer only about the second image.
+    Answer in JSON with these fields, in this order:
+    - reason: one short sentence on any hand or object you see in the second image and where it is.
+    - object_present: true if any hand or object is on the white area or on the green tape, otherwise false.
+    - touches_white: true if any hand or object touches or overlaps the white area, even partially, otherwise false.
+    If you are unsure, answer true.
+
+# プロンプトごとの問い方。mode: choice（選択肢を答えさせる、既定）／attr（属性を答えさせ、コードで選択肢を決める）。
+# reference：参照画像（<ラベル>/<番号>.jpg、評価するセッション内）。1 枚目に参照、2 枚目に判定対象を送る。
+# 参照画像は、そのプロンプトを含む評価の回では全体の対象から外す（全モデル・全プロンプトで同じ枚数にするため）。
+teacher_modes:
+  def-v2-attr: {mode: attr}
+  def-v2-ref: {mode: attr, reference: none/00001.jpg}
+  def-v2.1-ref: {mode: attr, reference: none/00001.jpg}
+
+# モデルごとの 1 回の問い合わせの時間切れ [s]（無ければ configs/teacher.yaml の timeout_s）
+timeout_s_by_model:
+  "qwen3.5:27b": 900
+
+# v0（SigLIP）のテキストラベル。null は configs/choices.yaml（今の既定）を使う
+v0_prompts:
+  baseline: null
+  def-v1:
+    CONTINUE:
+      - "a photo of an empty white table surrounded by a green tape border"
+    SLOW:
+      - "a photo of an object lying on the green tape border at the edge of a white table"
+    STOP:
+      - "a photo of an object or a hand on the white surface of a table"
+
+# 確認用の一覧画像（scripts/contact_sheet.py）
+contact_sheet:
+  out_dir: outputs                   # outputs/contact_<セッション>.jpg（git の無視対象）
+  thumb_width: 200
+  columns: 8
+  jpeg_quality: 90
+  colors: {none: "#7f7f7f", edge: "#2a9d5c", center: "#d1495b"}

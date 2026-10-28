@@ -1,0 +1,28 @@
+# ros2_control の設定（ROS の params ファイル形式。gz_ros2_control のプラグインがそのまま読む）。
+# 調整値はここだけに置く（コードには書かない）。
+
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz
+    use_sim_time: true
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    arm_position_controller:
+      type: position_controllers/JointGroupPositionController
+    gripper_position_controller:
+      type: position_controllers/JointGroupPositionController
+
+arm_position_controller:
+  ros__parameters:
+    joints: [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll]
+
+gripper_position_controller:
+  ros__parameters:
+    joints: [gripper]
+
+# gz_ros2_control の GazeboSimSystem：位置指令は内部で速度指令に変換して追従する。
+# position_proportional_gain が追従の速さを決める（既定に任せず明示する）。
+gz_ros2_control:
+  ros__parameters:
+    position_proportional_gain: 0.1
+    hold_joints: true

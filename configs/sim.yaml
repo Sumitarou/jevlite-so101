@@ -1,0 +1,208 @@
+# Gazebo シミュレーション（M1）の設定。単位は m・rad・s。座標の原点は作業台の白い面の中心（台の上面）。
+# 白い面と緑の帯は実物の寸法、ロボットの配置は実機で再現する値（docs/sim_layout.md）。台全体の大きさ・高さは【仮】。
+
+table:
+  height: 0.75            # 台の上面の高さ（床から）【仮】
+  size: [1.00, 0.70]      # 台全体（x, y）【仮】。白い面と緑の帯の外側は灰色
+  thickness: 0.03
+  # x はカメラから見た奥行き（奥が +x）、y は左右（カメラから見て左が +y）
+  white: [0.20, 0.32]     # 白い面（保護領域＝STOP）：奥行き 0.20 m × 横 0.32 m（実物）
+  band_width: 0.05        # 白い面の周りの緑の帯（警告領域＝SLOW）の幅（実物、4 辺とも）
+  overlay_thickness: 0.001  # 白い面・緑の帯の板の厚み（見た目用）
+
+robot:
+  # ロボットの台座（base_link）の原点の位置・向き。白い面の中心から見た位置、z は台の上面からの高さ。
+  # 台座は白い面の右辺（-y 側）の外、緑の帯のさらに外。アームは右から左（+y の向き）へ伸びる（yaw = +90°）。
+  # x = 0：台座の中心を白い面の奥行きの中央に合わせる（足元の外形は x 方向に ±0.055 m で対称）。
+  # y：足元の外形の白い面側の端（台座の原点から 0.065 m 先）を、帯の外縁（y = -0.21）から 0.01 m 離す
+  #    → -0.21 - 0.01 - 0.065 = -0.285。隙間 0.01 m は実機を置くときに再現する値（docs/sim_layout.md）。
+  #    0.02 m では白い面の左端の 2 つの角に届かない（scripts/sim/check_reach.py）
+  xyz: [0.0, -0.285, 0.0]
+  rpy: [0.0, 0.0, 1.5708]
+
+appearance:               # ロボットの色（実物に合わせる）。上流の URDF は変えず、launch で material を差し替える
+  printed_material: 3d_printed      # 上流の URDF の 3D プリント部品の material 名（これを差し替える）
+  base_link: base_link              # この link の 3D プリント部品を「台座の固定部分」の色にする
+  arm_rgba: [0.92, 0.92, 0.92, 1.0] # フォロワーアーム：白
+  base_rgba: [0.45, 0.45, 0.45, 1.0] # 台座の固定部分（実物ではクランプ）：グレー。モーター（sts3215）は黒のまま
+
+block:                    # 押すブロック（実物：PLA+、黄）
+  name: block
+  size: [0.05, 0.05, 0.01]  # x, y, 高さ [m]
+  mass: 0.025             # [kg]【仮：実物を量ったら置き換える】
+  mu: 0.3                 # 摩擦係数【仮】（ブロック側。台・白い面は既定の 1.0。DART は 2 つの小さい方を使う）
+  rgba: [0.95, 0.78, 0.10, 1.0]  # 黄
+  initial_xy: [0.0, -0.06]  # 起動時の位置（エピソードごとに置き直す）
+  initial_yaw: 0.0
+  pose_rate: 30           # 正確な位置を出す周期 [Hz]（PosePublisher）
+  pose_topic: /block/pose # ROS 側のトピック（geometry_msgs/PoseStamped）
+
+target_frame:             # 目標の枠（青。実物では青いテープで再現する）。当たり判定なしの見た目だけの線
+  # 枠の中心 (x, y) [m]。押し終わりの TCP（ブロックの中心から押す向きと反対へ 0.031 m）が、
+  # 5 mm・真下向き（最大 30° 傾け）で届く範囲の端（y ≈ 0.10）から 3 cm 内側に来る位置（check_reach.py）
+  center: [0.0, 0.10]
+  inner: 0.07             # 枠の内側の一辺 [m]
+  line_width: 0.005       # 線の幅 [m]
+  thickness: 0.0003       # 線の板の厚み [m]（白い面の上に重ねる）
+  rgba: [0.10, 0.30, 0.90, 1.0]  # 青
+
+intruder:                 # M4a の侵入物（棒）。当たり判定なし・重力なしの見た目だけのモデル。set_pose で動かす
+  name: intruder
+  radius: 0.01            # 直径 2 cm
+  length: 0.20            # 長さ 20 cm（縦向き）
+  rgba: [0.85, 0.10, 0.10, 1.0]  # 赤（白い面・緑の帯・青い枠・黄のブロック・白いアームと見分けやすい色）
+  # 待機位置（台の上面からの x, y, z [m]）：カメラにも影にも入らない遠く。M3d・M3e の画像は変わらない
+  park: [3.0, 3.0, 0.5]
+  pose_rate: 30           # 正確な位置を出す周期 [Hz]（PosePublisher）
+  pose_topic: /intruder/pose
+
+camera:                   # C920 相当
+  name: overhead_camera
+  topic: /overhead_camera/image
+  width: 640
+  height: 480
+  update_rate: 30
+  hfov: 1.229             # 水平画角 約 70.4°
+  near: 0.05
+  far: 5.0
+  # 実物と同じく、作業台の手前側の上方から斜めに見下ろす（白い面は台形に写る）。pitch は下向きが正
+  # xyz・rpy は scripts/sim/fit_camera.py --write が camera_fit の条件で計算して書く（手で変えない）
+  xyz: [-0.165, 0.000, 0.549]   # 台の上面から見た位置
+  rpy: [0.000, 1.100, 0.000]    # 約 63° 下向き
+
+camera_fit:              # scripts/sim/fit_camera.py（カメラの位置・向きを計算で決める）
+  # 必ず写す：緑の帯の外周の 4 隅、ロボットの台座の足元の外形。アームの上の部分・台座より後ろは写らなくてよい
+  margin: 0.05            # 必ず写すものの外側に残す余白（画像の幅・高さに対する割合）
+  max_height: 0.8         # カメラの高さの上限（台の上面から）[m]
+  min_height: 0.15        # 探す範囲の下限 [m]
+  min_green_width: 0.6    # 緑の帯の外周が画像の横幅に占める割合の下限（実物の画像に近づけるため）
+  pitch_range: [0.5, 1.3] # 斜め見下ろしとみなす下向きの角度の範囲 [rad]（真下 1.571・水平 0 は不可）
+  x_range: [-1.2, 0.3]    # カメラの x を探す範囲 [m]（作業台の手前側）
+  grid_step: 0.01         # x [m] と pitch [rad] の格子の間隔（2 回細かくして詰める）
+  height_tol: 0.001       # 高さの二分探索の打ち切り [m]
+  # 条件を満たす中で、いちばん高い位置（真上に近く、アームで隠れにくい）を選ぶ
+
+reach_check:             # scripts/sim/check_reach.py（白い面の全体に手先が届くか）
+  # 押すときの手先：真下向き（グリッパーの爪の先を下へ）、グリッパーは閉じる。爪の並ぶ線（tip の x 軸）を
+  # 押す向きに直交させ、閉じた爪の先の幅 約 2.6 cm の面でブロックを押す（ブロックが回りにくい）
+  orientation: tool_down  # tool_down：真下向き＋爪の線が押す向きに直交 / 指定なし：位置だけ
+  tip_link: gripper_frame_link
+  # TCP：tip_link の座標での、閉じた爪の先の一番下の点（メッシュの凸包から。爪の先の断面の中央）
+  tcp: [-0.004, 0.0, 0.0063]
+  tip_height: 0.005       # 押す高さ：TCP の、白い面からの高さ [m]（ブロックの厚さ 1 cm の半分）
+  grid_step: 0.01         # 白い面を区切る格子の間隔 [m]
+  pos_tol: 0.002          # 届いたとみなす位置の誤差 [m]
+  rot_tol_deg: 3.0        # 爪の線の向きの許容誤差 [°]
+  w_rot: 0.05             # IK で爪の線の向きの誤差に掛ける重み [m/rad]
+  # 道具の軸は「できるだけ真下」：真下へ弱く引き寄せ（w_vertical）、届かない所では台座から離れる向きへ
+  # 傾けてよい（最大 max_tilt_deg）。真下に固定すると、台座から 0.33 m より遠くに届かない
+  w_vertical: 0.005       # [m/rad]（小さいほど傾きやすい。0.002 では傾きが点ごとにばらついた）
+  max_tilt_deg: 30.0      # 真下からの傾きの上限 [°]
+  clearance: 0.0          # アームのメッシュ（台座を除く）が白い面より下に入らないこと [m]
+  ik_joints: [shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll]
+  fixed: {gripper: -0.16}  # 閉じたグリッパー（下限 -0.1745 の少し手前。爪の先の隙間 約 2 mm）
+  seeds: 24               # 1 点あたりの IK の初期値の数（乱数）
+  refine_passes: 4        # 届かなかった点を、届いた近くの点の解から解き直す回数
+  neighbours: 6           # そのとき使う近くの点の数
+  iters: 150
+  damping: 0.01           # 減衰最小二乗の減衰
+  seed: 0
+  # 変更案の探索用：台座から見た到達可能マップの範囲（前方の距離・左右）[m]
+  map_forward: [-0.05, 0.60]
+  map_lateral: [-0.40, 0.40]
+  base_shift_max: 0.05    # 変更案 ①：台座をずらして試す範囲（x・y それぞれ ±）[m]
+
+demo:                     # お手本の自動生成（scripts/sim/demo_plan.py・gen_demos.py）。高さは白い面の上面から、TCP の高さ
+  rate_hz: 30             # 関節の指令を送る周期（sim 時間）
+  seed_base: 0            # エピソード i の乱数の種 = seed_base + i
+  # 初期姿勢：白い面の右寄りの上で、手先は真下向き（関節角は IK で決める）。真下向きでは台座の近くを高く
+  # 上げられない（届く高さ：台座側 y ≤ -0.14 で 約 5 cm、中央で 約 9 cm）ので低めにする
+  home_tcp: [0.0, -0.08, 0.06]
+  # ブロックの初期位置（中心）：白い面の右〜中央寄り。押し始めの点（ブロックの右）も届く範囲の中に入る
+  # x は枠の内側の半幅 3.5 cm から 1 cm 内側（DART では押しても x がほぼ変わらないため。M2-5）。
+  # 1 cm は、滑る間の x のずれ（最大 約 0.5 cm）と向きの変化（約 12°）の余裕
+  start_x: [-0.025, 0.025]
+  start_y: [-0.10, 0.02]
+  start_yaw_deg: 15       # 向きは ±15° の一様乱数
+  # 押す向き：straight_y＝+y にまっすぐ（押し終わりはブロックの x のまま、y は枠の中心）／
+  # center＝枠の中心へ。DART の摩擦はワールドの軸ごとの角錐近似で、斜めに押しても y にしか滑らない（M2-5）
+  push_aim: straight_y
+  max_attempts: 20        # 計画できない初期位置は、同じ乱数の流れで引き直す
+  travel_height: 0.04     # 移動の高さ [m]（ブロックの厚さ 1 cm の上。台座の近くでも真下向きで届く高さ）
+  approach_height: 0.02   # 押し始めの点の上で、下ろす速さを落とし始める高さ [m]
+  lift_height: 0.04       # 押し終わって持ち上げる高さ [m]
+  pre_push_gap: 0.015     # 押し始めの点：ブロックの面から爪の先までの隙間 [m]
+  jaw_half_thickness: 0.006  # 閉じた爪の先の、押す向きの半分の厚み [m]（メッシュから）
+  speed_travel: 0.10      # [m/s]
+  speed_descend: 0.04     # [m/s]
+  speed_push: 0.03        # [m/s]
+  pause_before_push: 0.3  # [s]（指令に追従が追いつくのを待つ。追従の時定数 約 0.1 s）
+  pause_after_push: 0.3   # [s]
+  settle_after_lift: 1.0  # 持ち上げた後、ブロックが止まるのを待って成否を判定する [s]
+  max_joint_step: 0.05    # 1 周期の関節の変化量の上限 [rad]（30 Hz で 1.5 rad/s）
+  block_clearance: 0.003  # 押す前・押した後に、アームがブロックに近づいてよい距離 [m]
+  ik_iters: 40            # 1 区間をまとめて解く IK の反復回数（各回、前の刻みの解から解き直す）
+  home_move_s: 2.0        # エピソードの前に初期姿勢へ戻す時間（関節空間、sim 時間）[s]
+  reset_settle_s: 0.5     # ブロックを置き直した後に待つ時間（sim 時間）[s]
+  tail_s: 0.5             # 指令を送り終わってから記録を止めるまで（sim 時間）[s]
+  episode_timeout_s: 240  # 1 エピソードの上限（実時間）[s]。超えたら中止して止める
+  record:                 # rosbag2（1 エピソード＝1 bag、data/ は git の管理外）
+    out_dir: data/sim_demos
+    storage: mcap
+    preset: zstd_small    # mcap のチャンク圧縮（可逆）。3 本の比較で zstd_fast 約 21 MB → zstd_small 約 6 MB（件数の欠けなし）
+    topics:
+      - /joint_states                       # 関節の状態（100 Hz）
+      - /demo/action                        # 送った関節の指令（30 Hz、時刻付き）＝ ACT の学習目標
+      - /arm_position_controller/commands   # コントローラへの指令（時刻なし。確認用）
+      - /gripper_position_controller/commands
+      - /overhead_camera/image              # カメラ画像（rgb8、640×480、30 Hz）
+      - /block/pose                         # ブロックの正確な位置（30 Hz）
+      - /demo/episode                       # エピソードの情報と成否（JSON、開始時と終了時）
+      - /clock
+  success:                # 成功の判定（シミュレータが持つブロックの正確な位置）
+    z_tol: 0.003          # ブロックの中心の高さ（白い面の上 0.005 m）からのずれ [m]
+    max_tilt_deg: 10.0    # ブロックの傾き（裏返り）の上限 [°]
+    # 位置：ブロックの中心が枠の内側の正方形（target_frame.inner）に入っていること
+
+eval:                     # scripts/sim/eval_policy.py（学習した方策を Gazebo の閉ループで評価する。M3d）
+  seeds: [100, 119]       # 種の範囲（両端を含む）。お手本の種 0〜49 と重ならない。初期位置の引き方は demo と同じ
+  duration_s: 15.0        # 1 本の閉ループの長さ（sim 時間）[s]。お手本の最長 13.9 s より長い
+  tail_s: 1.0             # 閉ループの後、ブロックの位置で成否を判定するまで待つ（sim 時間）[s]
+  # 周期は demo.rate_hz（30 Hz、sim 時間）。初期姿勢・ブロックの置き直し・記録のトピックは demo と同じ
+  server_start_timeout_s: 180   # 方策のサーバー（train/ の環境）がモデルを読み込んで待ち受けるまでの上限（実時間）[s]
+  device: cuda            # 推論に使う装置（学習と GPU を分け合う。試すだけなら cpu も可）
+  video_fps: 30           # 成功例・失敗例の mp4（bag の画像から。sim 時間の 30 Hz）
+
+physics:
+  max_step_size: 0.001
+  real_time_factor: 1.0
+  # 物理エンジン（gz-physics のプラグイン名 gz-physics-<engine>-plugin）。dartsim（既定）/ bullet-featherstone。
+  # 実験では launch 引数 physics_engine:=… や check_m1.py・gen_demos.py の --engine で上書きする（ここは変えない）
+  engine: dartsim
+
+# scripts/sim/check_m1.py の確認
+check:
+  # 各関節の目標（可動範囲内。new calib のゼロは可動範囲の中央）
+  targets:
+    shoulder_pan: 0.5
+    shoulder_lift: -0.4
+    elbow_flex: 0.6
+    wrist_flex: -0.5
+    wrist_roll: 0.8
+    gripper: 0.8
+  # 向きの確認用の姿勢（check_m1.py --pose reach_white）。白い面の上を左へ低く伸ばし、肩を少し振る。
+  # 手先（gripper_frame_link）は順運動学で台の座標 (0.080, 0.148, 0.046) m（白い面の奥・左寄り）
+  poses:
+    reach_white:
+      shoulder_pan: 0.2
+      shoulder_lift: 1.2
+      elbow_flex: -0.4
+      wrist_flex: -0.9
+      wrist_roll: 0.0
+      gripper: 0.0
+  tolerance: 0.02         # 到達とみなす誤差 [rad]
+  response_fraction: 0.95 # ステップ応答で「届いた」とみなす変化量の割合
+  startup_timeout_s: 90   # 起動から /joint_states とコントローラが揃うまで
+  settle_timeout_s: 20    # 目標を送ってから到達まで（sim 時間ではなく実時間）
+  hold_s: 2.0             # 到達後に誤差を見続ける時間
+  shutdown_timeout_s: 15

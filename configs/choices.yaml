@@ -1,0 +1,15 @@
+# 選択肢は重大度順（CONTINUE < SLOW < STOP）。名前は jevlite.api.Choice と一致させること。
+# prompts はゼロショット(v0)用のテキスト。複数書くと平均埋め込みを使う。
+choices:
+  - name: CONTINUE
+    ja: 継続
+    prompts:
+      - "a photo of a robot arm working on a clear table with no person nearby"
+  - name: SLOW
+    ja: 減速
+    prompts:
+      - "a photo of a robot arm with a person's hand near the edge of the workspace"
+  - name: STOP
+    ja: 停止
+    prompts:
+      - "a photo of a person's hand reaching right next to a robot arm"

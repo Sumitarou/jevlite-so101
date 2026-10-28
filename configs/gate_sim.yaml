@@ -1,0 +1,31 @@
+# セーフティ・ゲート（gate/safety_gate.py）の Gazebo 用の設定（M4a）。仕様は docs/spec.md の G1〜G9。
+# 実機用の configs/gate.yaml とは別（実機は関節の単位が違う）。ここでは関節の値は rad、時刻は sim 時間 [s]。
+# G8・G9 以外は gate.yaml と同じ値。
+stale_s: 0.2
+min_conf: 0.6
+slow_alpha: 0.3
+resume_hold_s: 0.5
+future_tol_s: 0.001
+# G8: 関節ごとの最大速度 [rad/s]。shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper
+# 決め方（train/cmd_stats.py、M3d 100k の 20 本）：max(お手本の上限 0.05 rad/刻み, 方策の 1 刻みの p99) × 30 Hz × speed_margin
+max_speed: [1.8, 1.8, 1.8, 1.8, 1.8, 0.5]
+dt_max: 0.1
+# G8: SLOW 中は上限を slow_speed_scale × max_speed にする（0 < x ≤ 1）。M4a-S の SLOW の時間の伸ばし（0.3 倍）より
+#     少し大きくし、普通の SLOW の動きには触れず、chunk の切り替わりの跳びだけを抑える
+slow_speed_scale: 0.4
+# G9: 関節ごとの追従誤差の上限 [rad]。
+# 決め方：max(max_speed × (tau_s + 1/30 s) × 2, 実測の最大 × follow_margin)（一次遅れは速さ v の指令に v·tau 遅れる）
+max_follow_err: [0.48, 0.48, 0.48, 0.48, 0.48, 0.05]
+
+# 上の G8・G9 の値を計算するための設定（train/cmd_stats.py が読む。ゲートは読まない）
+derive:
+  tau_s: 0.1            # 位置指令への追従の時定数（M1-4 の実測、sim 時間）
+  speed_margin: 1.2
+  follow_margin: 1.5
+  gripper:              # グリッパーは指令が一定（-0.16 rad）なので、小さな固定の値
+    max_speed: 0.5
+    max_follow_err: 0.05
+  # 段階の分け方（指令の TCP、白い面の上の高さ [m]）
+  push_z: 0.012         # これより低く、+y へ push_vy より速く動いていれば「押す」
+  low_z: 0.025          # 押す前で、これより低ければ「下ろす」
+  push_vy: 0.01         # [m/s]

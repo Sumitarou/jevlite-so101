@@ -1,0 +1,64 @@
+jevlite-so101
+Copyright 2026 Sumitarou
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This repository was developed with the help of Claude Code (Anthropic), an AI coding
+assistant. See README.md.
+
+-------------------------------------------------------------------------------
+Third-party material included in this repository
+-------------------------------------------------------------------------------
+
+SO-ARM100 (TheRobotStudio)
+  https://github.com/TheRobotStudio/SO-ARM100
+  commit a758567c3978dfeefe282ede0500085a48fe8f78
+  Apache License 2.0
+  Included: sim_ws/src/so101_description/urdf/so101_new_calib.urdf (mesh paths changed
+  only) and sim_ws/src/so101_description/LICENSE. Details of the changes are in
+  sim_ws/src/so101_description/NOTICE.
+
+-------------------------------------------------------------------------------
+Third-party material NOT included (downloaded or installed by the user)
+-------------------------------------------------------------------------------
+
+The following are fetched or installed when reproducing the results. They are not
+redistributed here and remain under their own terms.
+
+SO-ARM100 meshes (13 STL files)
+  Same repository and commit as above, Apache License 2.0.
+  Downloaded by scripts/sim/fetch_so101_assets.py and checked against
+  sim_ws/src/so101_description/assets.lock.
+
+LeRobot 0.6.1 (Hugging Face)
+  https://github.com/huggingface/lerobot, Apache License 2.0.
+  Used in the train/ environment to train and run the ACT policy.
+
+ACT (Action Chunking with Transformers)
+  T. Z. Zhao, V. Kumar, S. Levine, C. Finn, "Learning Fine-Grained Bimanual
+  Manipulation with Low-Cost Hardware", RSS 2023. Used through LeRobot's implementation.
+
+SigLIP: google/siglip-base-patch16-224
+  https://huggingface.co/google/siglip-base-patch16-224
+  revision 7fd15f0689c79d79e38b1c2e2e2370a7bf2761ed, Apache License 2.0 (model card).
+  Used by the v0 (zero-shot) and v1 (features + logistic regression) judges.
+
+torchvision ImageNet weights: MobileNetV3-Small and ResNet-18 (IMAGENET1K_V1)
+  https://github.com/pytorch/vision, BSD 3-Clause License (code).
+  The pretrained weights are downloaded by torchvision and are subject to the terms
+  stated by the torchvision project. MobileNetV3-Small is the starting point of the v2
+  judge; ResNet-18 is the image backbone of the ACT policy.
+
+Teacher VLMs served by Ollama (used offline for labeling only; no model output or
+weights are distributed)
+  gemma3:4b      Gemma Terms of Use (https://ai.google.dev/gemma/terms)
+  qwen2.5vl:7b   Apache License 2.0
+  qwen3.5:27b    Apache License 2.0
+
+ROS 2 Jazzy, Gazebo Harmonic, ros_gz, gz_ros2_control, ros2_controllers, xacro
+  Runtime environment for the simulation, installed from the ROS / Gazebo packages under
+  their own licenses.
+
+Python dependencies
+  Listed with exact versions in uv.lock (main environment) and train/uv.lock (training
+  environment). Each package is under its own license.

@@ -1,0 +1,18 @@
+so101_description
+=================
+
+The URDF in urdf/so101_new_calib.urdf and the meshes fetched into meshes/ come from:
+
+  TheRobotStudio/SO-ARM100, https://github.com/TheRobotStudio/SO-ARM100
+  commit a758567c3978dfeefe282ede0500085a48fe8f78
+  path   Simulation/SO101/so101_new_calib.urdf and Simulation/SO101/assets/*.stl
+  license Apache License 2.0 (see LICENSE, copied from the same commit)
+  retrieved 2026-10-11
+
+Changes made here:
+  - urdf/so101_new_calib.urdf: only the mesh file paths were changed, from
+    "assets/<name>.stl" to "package://so101_description/meshes/<name>.stl"
+    (34 lines). Nothing else (links, joints, limits, inertia) was modified.
+  - The meshes are not stored in this repository. scripts/sim/fetch_so101_assets.py
+    downloads the 13 files from the commit above and checks each against the sha256
+    in assets.lock.

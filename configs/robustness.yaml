@@ -1,0 +1,69 @@
+# M3e 方策の頑健さの評価（scripts/sim/robustness.py・robustness_report.py）。学習し直しはしない。単位は m・rad・s（角度は _deg）。
+# 初期位置は乱数で引かず、下の条件をそのまま使う（同じ設定から同じ評価を再現できる）。お手本の範囲は configs/sim.yaml の demo。
+# 家の姿勢・成否の判定・tail は M3d（configs/sim.yaml の eval・demo）と同じ。
+
+policy:
+  checkpoint: models/act/20261011_163738_m3c_100k/lerobot/checkpoints/100000
+  device: cuda
+
+duration_s: 15.0          # 1 本の閉ループの長さ（sim 時間）。M3d と同じ
+repeats: 1                # 各条件の本数（ACT の推論は決定的。2 にすると再現の確認になる）
+
+# 条件の基準（範囲の中央）。①・② の各条件はここからのずれで書く
+center: {x: 0.0, y: -0.04, yaw_deg: 0.0}
+
+# ① 初期位置を範囲の外に置く。すべて n_action_steps = 100（(a) 既定）
+start_suite:
+  n_action_steps: 100
+  conditions:             # name, dx, dy [m], dyaw_deg（書かないものは 0）
+    - {name: center}
+    - {name: x-2.5, dx: -0.025}   # 範囲の端（追従の傾きを求めるための基準点）
+    - {name: x+2.5, dx: 0.025}
+    - {name: x-3.0, dx: -0.030}
+    - {name: x+3.0, dx: 0.030}
+    - {name: x-3.5, dx: -0.035}
+    - {name: x+3.5, dx: 0.035}
+    - {name: x-4.0, dx: -0.040}
+    - {name: x+4.0, dx: 0.040}
+    - {name: x-5.0, dx: -0.050}
+    - {name: x+5.0, dx: 0.050}
+    - {name: yaw-25, dyaw_deg: -25}
+    - {name: yaw+25, dyaw_deg: 25}
+    - {name: yaw-35, dyaw_deg: -35}
+    - {name: yaw+35, dyaw_deg: 35}
+    - {name: y-0.12, dy: -0.08}   # 手前：範囲（-0.10）の外へ 2 cm。-0.13 は IK の誤差 4.2 mm で計画できない
+    - {name: y+0.04, dy: 0.08}    # 奥：範囲（+0.02）の外へ 2 cm
+
+# ② 押している途中（または押す前）にブロックをずらす。中央から始める
+perturb_suite:
+  n_action_steps: [100, 30, 10]   # 学習し直さずに推論時に変える（100 = (a)、30・10 = 短い間隔で見直す）
+  baseline_n_action_steps: [30, 10]  # ずらさない基準。100 の基準は ① の center を使う
+  # t_s：閉ループの開始からの sim 時間。100k ではブロックが動くのは約 2.6〜6.8 s（M3d の bag）。
+  # t = 4.0 s は (a) では 3.33 s の推論の直後（次に見直すのは 6.67 s）。t = 1.5 s はアームを下ろしている間
+  perturbations:          # name, t_s, dx [m], dyaw_deg, phase
+    - {name: push_x-1, t_s: 4.0, dx: -0.01, phase: push}
+    - {name: push_x+1, t_s: 4.0, dx: 0.01, phase: push}
+    - {name: push_x-2, t_s: 4.0, dx: -0.02, phase: push}
+    - {name: push_x+2, t_s: 4.0, dx: 0.02, phase: push}
+    - {name: push_yaw-15, t_s: 4.0, dyaw_deg: -15, phase: push}
+    - {name: push_yaw+15, t_s: 4.0, dyaw_deg: 15, phase: push}
+    - {name: pre_x+2, t_s: 1.5, dx: 0.02, phase: pre_push}
+  # 向きをずらすときは、回した角が爪に食い込まないように、ブロックを +y へ
+  # 「回した後の y 方向の半分の幅 − 今の半分の幅 + y_clearance」だけ出す。x のずれでは y を変えない
+  y_clearance: 0.002
+
+metrics:
+  push_z: 0.012           # 押している刻み：TCP の高さ（白い面から）がこれより低い
+  push_behind: 0.04       # かつ TCP がブロックの中心の -y 側、この距離以内にある
+  touch_move: 0.003       # ブロックがこれ以上動いたら「触れた」
+  reaim_tol: 0.005        # ずらした後、|TCP x − ブロック x| がこれ以内に戻ったら「向き直った」
+  perturb_tol: 0.003      # 置き直した後の x の誤差の上限（超えたら perturb_ok = false）
+  perturb_yaw_tol_deg: 3.0
+  perturb_check_ticks: 3  # 置き直しの確認に使う刻み（ずらした刻みの何刻み後）
+
+videos:                   # 代表例の mp4（条件の id）
+  start: [x+3.0, x+5.0, yaw+35]
+  perturb: [push_x+2_n100, push_x+2_n10, pre_x+2_n100]
+
+report:
+  trace: push_x+2         # 図 4：|TCP x − ブロック x| の時間変化を n_action_steps ごとに並べるずらし方

@@ -1,0 +1,12 @@
+# scripts/capture_samples.py（学習・評価用の画像の撮影）の設定。カメラ自体の設定は configs/camera.yaml。
+out_root: samples/private            # git の無視対象でなければ撮影を拒否する（人物・部屋が写り得るため）
+preview_path: outputs/preview_latest.jpg  # --preview で毎回上書き（VS Code で開いておく）
+jpeg_quality: 95
+filename_digits: 5                   # 00001.jpg
+session_format: "%Y%m%d-%H%M"        # --session を省略したときのセッション名（例：20261010-2240）
+frame_timeout_s: 1.0                 # 新しいフレームを待つ上限
+# ラベル（教師の 3 択に対応）。定義と原則は docs/labeling.md（画像に写っているもので決める。迷ったら center）
+labels:
+  none:   {teacher: A, ja: なし}
+  edge:   {teacher: B, ja: 端にある}
+  center: {teacher: C, ja: 中央にある}

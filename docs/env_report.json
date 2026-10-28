@@ -1,0 +1,189 @@
+{
+  "generated_at": "2026-10-11T07:30:17+00:00",
+  "system": {
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "6.17.0-1017-oem",
+    "machine": "x86_64",
+    "python": "3.12.3",
+    "uv": "uv 0.12.24 (x86_64-unknown-linux-gnu)",
+    "status": "ok"
+  },
+  "packages": {
+    "versions": {
+      "numpy": "2.5.2",
+      "pillow": "12.3.0",
+      "pyyaml": "6.0.3",
+      "httpx": "0.28.1",
+      "torch": "2.11.0+cu128",
+      "transformers": "5.19.0",
+      "opencv-python-headless": "5.0.0.93",
+      "pytest": "9.1.1",
+      "ruff": "0.16.10"
+    },
+    "uv_lock_sha256": "e7fc64dccbab283fb92b5fe1e5a2a1cbc786265c5eb7759ead7919f4d43ed326",
+    "status": "ok"
+  },
+  "train_env": {
+    "uv_lock_sha256": "5ca2e018ad79fa111294ccdd8f8cc707c472561b0d5eb8a3d92cdf9a916afa0d",
+    "versions": {
+      "lerobot": "0.6.1",
+      "torch": "2.11.0+cu128",
+      "torchvision": "0.26.0+cu128",
+      "torchcodec": "0.11.1",
+      "numpy": "2.2.6",
+      "rosbags": "0.11.6",
+      "av": "15.1.0"
+    },
+    "probe": {
+      "lerobot": "0.6.1",
+      "torch": "2.11.0+cu128",
+      "cuda_available": true,
+      "cuda": "12.8",
+      "backbone_weights": {
+        "resnet18-f37072fd.pth": "f37072fd47e89c5e827621c5baffa7500819f7896bbacec160b1a16c560e07ec"
+      }
+    },
+    "status": "ok"
+  },
+  "gpu": {
+    "gpus": [
+      {
+        "name": "NVIDIA RTX 2000 Ada Generation",
+        "driver": "580.126.09",
+        "memory_total_mib": 16380,
+        "memory_used_mib": 223
+      }
+    ],
+    "status": "ok"
+  },
+  "torch": {
+    "torch": "2.11.0+cu128",
+    "cuda_build": "12.8",
+    "cuda_available": true,
+    "device": "NVIDIA RTX 2000 Ada Generation",
+    "capability": "8.9",
+    "cudnn": 91900,
+    "status": "ok"
+  },
+  "ollama": {
+    "version": "0.40.2",
+    "models": {
+      "gemma3:4b": {
+        "digest": "68ceab7e468a31c988b44d5a4984a0e21f58c4f7158c6ce29c1804babac38df7",
+        "size_bytes": 3350272403,
+        "quantization": "Q4_K_M",
+        "capabilities": [
+          "completion",
+          "vision"
+        ]
+      },
+      "qwen2.5vl:7b": {
+        "digest": "4879c1a6006d94141f3b90d55299878f20a99258fa1691890cc47191a08495b5",
+        "size_bytes": 5972256935,
+        "quantization": "Q4_K_M",
+        "capabilities": [
+          "completion",
+          "vision"
+        ]
+      },
+      "qwen3.5:27b": {
+        "digest": "7414428886576a8fd07dc0807e1e17aeaa5d330b57f168f2082d214525527b7c",
+        "size_bytes": 17429272885,
+        "quantization": "Q4_K_M",
+        "capabilities": [
+          "completion",
+          "vision",
+          "tools",
+          "thinking"
+        ]
+      }
+    },
+    "missing": [],
+    "status": "ok"
+  },
+  "hf": {
+    "model_id": "google/siglip-base-patch16-224",
+    "revision": "7fd15f0689c79d79e38b1c2e2e2370a7bf2761ed",
+    "cached_revisions": [
+      "7fd15f0689c79d79e38b1c2e2e2370a7bf2761ed"
+    ],
+    "pinned_revision_cached": true,
+    "status": "ok"
+  },
+  "disk": {
+    "repo": {
+      "free_gib": 337.0,
+      "total_gib": 467.3
+    },
+    "hf_cache": {
+      "free_gib": 337.0,
+      "total_gib": 467.3
+    },
+    "status": "ok"
+  },
+  "camera": {
+    "versions": {
+      "opencv": "5.0.0",
+      "v4l2-ctl": "v4l2-ctl 1.26.1"
+    },
+    "uvcvideo_clock": "CLOCK_MONOTONIC",
+    "devices": [
+      "/dev/video0",
+      "/dev/video1"
+    ],
+    "device": "/dev/v4l/by-id/usb-046d_HD_Pro_Webcam_C920_<SERIAL>-video-index0",
+    "vendor_id": "046d",
+    "model": "HD_Pro_Webcam_C920",
+    "usb_speed_mbps": 480,
+    "requested": {
+      "fourcc": "MJPG",
+      "width": 640,
+      "height": 480,
+      "fps": 30.0,
+      "buffersize": 2,
+      "controls": {
+        "power_line_frequency": 1,
+        "exposure_dynamic_framerate": 0,
+        "focus_automatic_continuous": 0,
+        "focus_absolute": 30,
+        "zoom_absolute": 100,
+        "pan_absolute": 0,
+        "tilt_absolute": 0
+      }
+    },
+    "actual": {
+      "fourcc": "MJPG",
+      "width": 640,
+      "height": 480,
+      "fps": 30.0,
+      "buffersize": 2,
+      "controls": {
+        "power_line_frequency": 1,
+        "exposure_dynamic_framerate": 0,
+        "focus_automatic_continuous": 0,
+        "focus_absolute": 30,
+        "zoom_absolute": 100,
+        "pan_absolute": 0,
+        "tilt_absolute": 0
+      }
+    },
+    "mismatches": [],
+    "clock_check": {
+      "offsets_ms": [
+        30.0,
+        23.9,
+        28.3,
+        28.4,
+        28.5
+      ],
+      "limit_ms": 500.0
+    },
+    "measured": {
+      "frames": 60,
+      "fps": 30.06,
+      "frame_age_ms_mean": 30.4,
+      "frame_age_ms_max": 33.8
+    },
+    "status": "ok"
+  }
+}

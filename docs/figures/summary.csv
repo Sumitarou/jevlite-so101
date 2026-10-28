@@ -1,0 +1,5 @@
+variant,g8,g9,max_cmd_step,steady_track_err,obstacle_detected,detect_time_s,unnecessary_stops,restops_within_window,continue_ratio,figure
+1,0,0,21.213,1.694,0,,0,0,0.460,sim_gate_demo_1_g8off_g9off.png
+2,1,0,1.528,1.727,0,,0,0,0.460,sim_gate_demo_2_g8on_g9off.png
+3,1,1,1.200,1.727,1,0.32,0,1,0.406,sim_gate_demo_3_g8on_g9on.png
+4,0,1,41.142,1.694,1,0.30,2,2,0.344,sim_gate_demo_4_g8off_g9on.png

@@ -1,0 +1,25 @@
+# カメラ設定の公開用テンプレート。configs/camera.yaml にコピーし、<SERIAL> を実機の値に置き換える
+#   ls /dev/v4l/by-id/   （…-video-index0 を使う。index1 はメタデータ用）
+# camera.yaml はシリアル番号を含むので .gitignore 済み（リポジトリに入れない）。
+device: /dev/v4l/by-id/usb-046d_HD_Pro_Webcam_C920_<SERIAL>-video-index0
+width: 640
+height: 480
+fps: 30
+fourcc: MJPG
+buffersize: 2  # 1 だと取りこぼして約 18 fps、2 で 30 fps（実測）。最新フレーム保持スレッドが読み続けるので、読み手が遅くても古くならない（100 ms 間隔で平均 41 ms・最大 47 ms）
+# 起動時に撮影時刻（V4L2 バッファのタイムスタンプ）が time.monotonic() と同じ時計かを確かめる。
+# ずれがこれを超えたら起動時はエラーで止める（読み出し時刻へは切り替えない：実際より新しく見え危険側のため）。
+# 実行中のずれは警告のみ（ゲートの G1 が古い・未来として STOP にする）。
+clock_check_frames: 5
+max_clock_offset_s: 0.5
+# v4l2 の制御（名前はこのカーネルでの v4l2-ctl の名前）。開くたびに適用する（抜き差し・再起動で元に戻るため）。
+# 適用順は jevlite/camera.py が決める（自動系の OFF を先に。例：focus_automatic_continuous → focus_absolute）。
+# white_balance と露出は自動のまま（ここには書かない）。
+controls:
+  power_line_frequency: 1          # 1 = 50 Hz
+  exposure_dynamic_framerate: 0    # 暗所で fps を落とさない
+  focus_automatic_continuous: 0    # オートフォーカス OFF（focus_absolute より先に適用）
+  focus_absolute: 30               # 0〜250（5 刻み）。設置後に 0〜80 を比較し 30 に決定（2026-10-11）
+  zoom_absolute: 100
+  pan_absolute: 0
+  tilt_absolute: 0
